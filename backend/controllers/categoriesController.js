@@ -2,10 +2,12 @@ const pool = require('../database');
 
 // Alle Kategorien abrufen
 const getAllCategories = async (req, res) => {
+    console.log('getAllCategories aufgerufen');
     try {
         const result = await pool.query('SELECT * FROM categories ORDER BY name');
         res.json(result.rows);
     } catch (err) {
+        console.error('Fehler beim Abrufen der Kategorien:', err.message);
         res.status(500).json({ error: 'Datenbankfehler', details: err.message });
     }
 };
@@ -13,10 +15,7 @@ const getAllCategories = async (req, res) => {
 // Neue Kategorie hinzufügen
 const addCategory = async (req, res) => {
     const { name } = req.body;
-
-    if (!name) {
-        return res.status(400).json({ error: 'Name der Kategorie ist erforderlich.' });
-    }
+    console.log('addCategory aufgerufen mit Name:', name);
 
     try {
         const result = await pool.query(
@@ -25,18 +24,16 @@ const addCategory = async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
+        console.error('Fehler beim Hinzufügen einer Kategorie:', err.message);
         res.status(500).json({ error: 'Datenbankfehler', details: err.message });
     }
 };
 
-// Kategorie bearbeiten
+// Kategorie aktualisieren
 const updateCategory = async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
-
-    if (!name) {
-        return res.status(400).json({ error: 'Name der Kategorie ist erforderlich.' });
-    }
+    console.log('updateCategory aufgerufen mit ID:', id, 'Name:', name);
 
     try {
         const result = await pool.query(
@@ -50,6 +47,7 @@ const updateCategory = async (req, res) => {
 
         res.json(result.rows[0]);
     } catch (err) {
+        console.error('Fehler beim Aktualisieren einer Kategorie:', err.message);
         res.status(500).json({ error: 'Datenbankfehler', details: err.message });
     }
 };
@@ -57,6 +55,7 @@ const updateCategory = async (req, res) => {
 // Kategorie löschen
 const deleteCategory = async (req, res) => {
     const { id } = req.params;
+    console.log('deleteCategory aufgerufen mit ID:', id);
 
     try {
         const result = await pool.query(
@@ -70,24 +69,7 @@ const deleteCategory = async (req, res) => {
 
         res.json({ message: 'Kategorie gelöscht.', deleted: result.rows[0] });
     } catch (err) {
-        res.status(500).json({ error: 'Datenbankfehler', details: err.message });
-    }
-};
-
-// Alle Kategorien mit zugehörigen Items abrufen
-const getCategoriesWithItems = async (req, res) => {
-    try {
-        const query = `
-            SELECT c.id AS category_id, c.name AS category_name, 
-                   json_agg(i.*) AS items
-            FROM categories c
-            LEFT JOIN items i ON i.category_id = c.id
-            GROUP BY c.id
-            ORDER BY c.name;
-        `;
-        const result = await pool.query(query);
-        res.json(result.rows);
-    } catch (err) {
+        console.error('Fehler beim Löschen einer Kategorie:', err.message);
         res.status(500).json({ error: 'Datenbankfehler', details: err.message });
     }
 };
@@ -97,5 +79,4 @@ module.exports = {
     addCategory,
     updateCategory,
     deleteCategory,
-    getCategoriesWithItems,
 };

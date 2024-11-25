@@ -1,20 +1,15 @@
 const express = require('express');
-const {
-    getAllCategories,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    getCategoriesWithItems,
-} = require('../controllers/categoriesController');
+const { getAllCategories, addCategory, updateCategory, deleteCategory } = require('../controllers/categoriesController');
 
 const router = express.Router();
 
-// Endpunkte definieren
+// Debug-Log
+console.log('CategoryRoutes geladen');
+
+// Routen definieren
 router.get('/', getAllCategories); // Alle Kategorien abrufen
 router.post('/', addCategory); // Neue Kategorie hinzufügen
-router.put('/:id', updateCategory); // Kategorie bearbeiten
+router.put('/:id', updateCategory); // Kategorie aktualisieren
 router.delete('/:id', deleteCategory); // Kategorie löschen
-router.get('/with-items', getCategoriesWithItems);
-
 
 module.exports = router;
