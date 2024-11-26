@@ -55,21 +55,40 @@ const updateCategory = async (req, res) => {
 // Kategorie löschen
 const deleteCategory = async (req, res) => {
     const { id } = req.params;
-    console.log('deleteCategory aufgerufen mit ID:', id);
 
     try {
-        const result = await pool.query(
-            'DELETE FROM categories WHERE id = $1 RETURNING *',
-            [id]
-        );
+        // Verknüpfte Items löschen
+        await pool.query('DELETE FROM items WHERE category_id = $1', [id]);
+
+        // Kategorie löschen
+        const result = await pool.query('DELETE FROM categories WHERE id = $1 RETURNING *', [id]);
 
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Kategorie nicht gefunden.' });
         }
 
-        res.json({ message: 'Kategorie gelöscht.', deleted: result.rows[0] });
+        res.json({ message: 'Kategorie und zugehörige Items gelöscht.', deleted: result.rows[0] });
     } catch (err) {
-        console.error('Fehler beim Löschen einer Kategorie:', err.message);
+        console.error('Fehler beim Löschen der Kategorie:', err.message);
+        res.status(500).json({ error: 'Datenbankfehler', details: err.message });
+    }
+};
+
+
+// Kategorien mit Anzahl der zugeordneten Einträge anzeigen
+const getCategoriesWithCounts = async (req, res) => {
+    try {
+        const query = `
+            SELECT c.id, c.name, COUNT(i.id) AS item_count
+            FROM categories c
+            LEFT JOIN items i ON i.category_id = c.id
+            GROUP BY c.id
+            ORDER BY c.name;
+        `;
+        const result = await pool.query(query);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Fehler beim Abrufen der Kategorien mit Zählung:', err.message);
         res.status(500).json({ error: 'Datenbankfehler', details: err.message });
     }
 };
@@ -79,4 +98,6 @@ module.exports = {
     addCategory,
     updateCategory,
     deleteCategory,
+    getCategoriesWithCounts,
 };
+

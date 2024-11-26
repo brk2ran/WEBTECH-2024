@@ -15,20 +15,32 @@ const getAllItems = async (req, res) => {
 
 // Neues Item hinzufügen
 const addItem = async (req, res) => {
-    const { name, price, mana, categoryId } = req.body;
-    console.log('addItem aufgerufen:', { name, price, mana, categoryId });
+    const { name, price, mana, categories } = req.body; // `categories` ist ein Array
 
     try {
+        // Neues Item hinzufügen
         const result = await pool.query(
-            'INSERT INTO items (name, price, mana, category_id) VALUES ($1, $2, $3, $4) RETURNING *',
-            [name, price, mana, categoryId]
+            'INSERT INTO items (name, price, mana) VALUES ($1, $2, $3) RETURNING *',
+            [name, price, mana]
         );
-        res.status(201).json(result.rows[0]);
+
+        const item = result.rows[0];
+
+        // Kategorien zuweisen
+        if (categories && categories.length > 0) {
+            const categoryQueries = categories.map(categoryId =>
+                pool.query('INSERT INTO item_categories (item_id, category_id) VALUES ($1, $2)', [item.id, categoryId])
+            );
+            await Promise.all(categoryQueries);
+        }
+
+        res.status(201).json(item);
     } catch (err) {
         console.error('Fehler beim Hinzufügen eines Items:', err.message);
         res.status(500).json({ error: 'Datenbankfehler', details: err.message });
     }
 };
+
 
 // Item löschen
 const deleteItem = async (req, res) => {
@@ -53,27 +65,41 @@ const deleteItem = async (req, res) => {
 // Item updaten
 const updateItem = async (req, res) => {
     const { id } = req.params;
-    const { name, price, mana, categoryId } = req.body;
-
-    console.log('updateItem aufgerufen mit ID:', id, 'und Daten:', req.body);
+    const { name, price, mana, categories } = req.body; // `categories` ist ein Array
 
     try {
+        // Item aktualisieren
         const result = await pool.query(
-            'UPDATE items SET name = $1, price = $2, mana = $3, category_id = $4 WHERE id = $5 RETURNING *',
-            [name, price, mana, categoryId, id]
+            'UPDATE items SET name = $1, price = $2, mana = $3 WHERE id = $4 RETURNING *',
+            [name, price, mana, id]
         );
 
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Item nicht gefunden.' });
         }
 
-        res.json(result.rows[0]);
+        const item = result.rows[0];
+
+        // Alte Kategorien löschen
+        await pool.query('DELETE FROM item_categories WHERE item_id = $1', [id]);
+
+        // Neue Kategorien zuweisen
+        if (categories && categories.length > 0) {
+            const categoryQueries = categories.map(categoryId =>
+                pool.query('INSERT INTO item_categories (item_id, category_id) VALUES ($1, $2)', [id, categoryId])
+            );
+            await Promise.all(categoryQueries);
+        }
+
+        res.json(item);
     } catch (err) {
         console.error('Fehler beim Aktualisieren eines Items:', err.message);
         res.status(500).json({ error: 'Datenbankfehler', details: err.message });
     }
 };
 
+
+// Item Volltextsuche
 const searchItems = async (req, res) => {
     const { query, minPrice, maxPrice, minMana, maxMana, categoryId } = req.query;
 
@@ -128,10 +154,38 @@ const searchItems = async (req, res) => {
     }
 };
 
+// Kategorie eines Items abrufen
+const getItemWithCategories = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const itemResult = await pool.query('SELECT * FROM items WHERE id = $1', [id]);
+
+        if (itemResult.rowCount === 0) {
+            return res.status(404).json({ error: 'Item nicht gefunden.' });
+        }
+
+        const categoriesResult = await pool.query(
+            'SELECT c.id, c.name FROM categories c INNER JOIN item_categories ic ON c.id = ic.category_id WHERE ic.item_id = $1',
+            [id]
+        );
+
+        const item = itemResult.rows[0];
+        item.categories = categoriesResult.rows;
+
+        res.json(item);
+    } catch (err) {
+        console.error('Fehler beim Abrufen eines Items mit Kategorien:', err.message);
+        res.status(500).json({ error: 'Datenbankfehler', details: err.message });
+    }
+};
+
+
 module.exports = {
     getAllItems,
     addItem,
     deleteItem,
     updateItem,
     searchItems,
+    getItemWithCategories,
 };
