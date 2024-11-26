@@ -74,10 +74,64 @@ const updateItem = async (req, res) => {
     }
 };
 
+const searchItems = async (req, res) => {
+    const { query, minPrice, maxPrice, minMana, maxMana, categoryId } = req.query;
+
+    try {
+        let sql = `
+            SELECT items.*, categories.name AS category_name
+            FROM items
+            LEFT JOIN categories ON items.category_id = categories.id
+            WHERE 1=1
+        `;
+        const values = [];
+
+        // Volltextsuche
+        if (query) {
+            sql += ` AND search_vector @@ plainto_tsquery($${values.length + 1})`;
+            values.push(query);
+        }
+
+        // Preisbereich
+        if (minPrice) {
+            sql += ` AND price >= $${values.length + 1}`;
+            values.push(minPrice);
+        }
+        if (maxPrice) {
+            sql += ` AND price <= $${values.length + 1}`;
+            values.push(maxPrice);
+        }
+
+        // Mana-Bereich
+        if (minMana) {
+            sql += ` AND mana >= $${values.length + 1}`;
+            values.push(minMana);
+        }
+        if (maxMana) {
+            sql += ` AND mana <= $${values.length + 1}`;
+            values.push(maxMana);
+        }
+
+        // Kategorie filtern
+        if (categoryId) {
+            sql += ` AND category_id = $${values.length + 1}`;
+            values.push(categoryId);
+        }
+
+        sql += ` ORDER BY created_at DESC`;
+
+        const result = await pool.query(sql, values);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Fehler bei der Suche:', err.message);
+        res.status(500).json({ error: 'Datenbankfehler', details: err.message });
+    }
+};
+
 module.exports = {
     getAllItems,
     addItem,
     deleteItem,
     updateItem,
+    searchItems,
 };
-
